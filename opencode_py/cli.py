@@ -6,6 +6,8 @@ import sys
 from . import __version__
 from .agent import Agent
 from .config import AGENTS, KNOWN_KEYS, config_path, load_config, mask_key, save_config, validate
+from .providers import count as provider_count
+from .providers import get_provider, provider_ids
 
 
 def build_parser():
@@ -15,6 +17,10 @@ def build_parser():
     p.add_argument("--print", dest="do_print", action="store_true", help="non-interactive: print answer and exit")
     p.add_argument("--no-tui", action="store_true", help="force plain console even if PyTermGUI installed")
     p.add_argument("--model", default=None, help="override model")
+    p.add_argument("--provider", default=None, metavar="ID",
+                   help="use a catalog provider (fills base_url/api key; see --list-providers)")
+    p.add_argument("--list-providers", action="store_true",
+                   help="list the %d known providers and exit" % provider_count())
     p.add_argument("--base-url", default=None, help="override OpenAI-compatible base URL")
     p.add_argument("--api-key", default=None, help="override API key (else from config file / OPENAI_API_KEY)")
     p.add_argument("--agent", default=None, choices=["build", "plan"], help="agent mode")
@@ -44,7 +50,9 @@ def run_init(cfg):
     cur_base = str(cfg.get("base_url", "") or "")
     cur_model = str(cfg.get("model", "") or "")
     cur_agent = str(cfg.get("agent", "") or "build")
+    cur_provider = str(cfg.get("provider", "") or "openai")
     try:
+        provider = input("provider [%s] (see --list-providers): " % cur_provider).strip() or cur_provider
         base = input("base_url [%s]: " % cur_base).strip() or cur_base
         model = input("model [%s]: " % cur_model).strip() or cur_model
         agent = input("agent [build|plan] [%s]: " % cur_agent).strip() or cur_agent
@@ -59,6 +67,10 @@ def run_init(cfg):
     if agent not in AGENTS:
         print("agent must be build|plan, keeping %s" % cur_agent)
         agent = cur_agent
+    if get_provider(provider) is None:
+        print("unknown provider %r, keeping %s (see --list-providers)" % (provider, cur_provider))
+        provider = cur_provider
+    cfg["provider"] = provider
     cfg["base_url"] = base
     cfg["model"] = model
     cfg["agent"] = agent
@@ -69,6 +81,7 @@ def run_init(cfg):
         print("warning: %s" % "; ".join(errors))
     path = save_config(cfg)
     print("saved to %s" % path)
+    print("provider: %s" % cfg.get("provider", ""))
     print("base_url: %s" % cfg.get("base_url", ""))
     print("api_key: %s" % mask_key(str(cfg.get("api_key", "") or "")))
     return 0
@@ -77,6 +90,13 @@ def run_init(cfg):
 def handle_config_commands(args, cfg):
     # type: (argparse.Namespace, dict) -> int
     # Returns exit code, or -1 when no config command matched.
+    if args.list_providers:
+        print("%-24s %-10s %-42s %s" % ("ID", "PROTO", "BASE_URL", "NAME"))
+        for pid in provider_ids():
+            p = get_provider(pid)
+            base = p["base"] or "(needs --base-url)"
+            print("%-24s %-10s %-42s %s" % (pid, p["proto"], base[:42], p["name"]))
+        return 0
     if args.set_kv or args.unset_keys:
         for item in args.set_kv:
             if "=" not in item:
@@ -101,6 +121,7 @@ def handle_config_commands(args, cfg):
         return 0
     if args.show_config:
         print("config: %s" % config_path())
+        print("provider: %s" % cfg.get("provider", ""))
         print("base_url: %s" % cfg.get("base_url", ""))
         print("api_key: %s" % mask_key(str(cfg.get("api_key", "") or "")))
         print("model: %s" % cfg.get("model", ""))
@@ -163,6 +184,7 @@ def main(argv=None):
         return 0
     cfg = load_config({
         "model": args.model,
+        "provider": args.provider,
         "base_url": args.base_url,
         "api_key": args.api_key,
         "agent": args.agent,

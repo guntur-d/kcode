@@ -7,6 +7,10 @@
 > [opencode](https://github.com/anomalyco/opencode) and not affiliated with it.
 > Expect rough edges; the goal is "it runs at all", not "it does everything".
 
+Original project this is ported from (MVP subset only):
+**https://github.com/anomalyco/opencode** — provider directory, Zen/Gateway
+docs and the agent-loop idea. Nothing here is affiliated with the OpenCode team.
+
 Why this exists: modern TUI frameworks moved on — e.g.
 [Textual](https://github.com/Textualize/textual) now needs Python ≥ 3.9 plus
 `rich`, `pygments`, `markdown-it`, `platformdirs` (and tree-sitter extras on
@@ -20,10 +24,11 @@ falling back to a plain `input()/print()` console when the terminal can't cope.
 
 - **Is:** a minimal AI coding agent you can run with `py -3.8` on a 2016 box:
   agent loop (`build` full-access / `plan` read-only), 7 local tools
-  (`read/write/edit/bash/glob/grep/list_dir`), any OpenAI-compatible
-  `/chat/completions` endpoint via stdlib `urllib`, JSON config file, session
+  (`read/write/edit/bash/glob/grep/list_dir`), **80+ providers** (incl. OpenCode
+  Zen at `https://opencode.ai/zen/v1`) via stdlib `urllib` with openai /
+  anthropic / azure protocols, JSON config file, session
   logs, `--print` mode for scripts.
-- **Isn't:** the real opencode. Not ported: 75+ providers, LSP, MCP,
+- **Isn't:** the real opencode. Not ported: LSP, MCP,
   multi-session server, permission daemon, desktop app, rich TUI widgets.
 
 ## Install on a real Win2016 server (Python 3.8)
@@ -79,6 +84,7 @@ OPENAI_API_KEY=sk-... python3.8 -m opencode_py
 
 ```json
 {
+  "provider": "openai",
   "base_url": "https://api.openai.com/v1",
   "api_key": "sk-...",
   "model": "gpt-4o-mini",
@@ -86,7 +92,8 @@ OPENAI_API_KEY=sk-... python3.8 -m opencode_py
 }
 ```
 
-Precedence: defaults < config file < env (`OPENAI_API_KEY/BASE_URL/MODEL`) < CLI flags.
+Precedence: defaults < config file < provider catalog < env
+(`OPENAI_*`, `OPENCODE_API_KEY`, `<PROVIDER>_API_KEY`) < CLI flags.
 File holds the secrets; env/CLI still override per-run (CI, shared Win2016 servers).
 
 ```bash
@@ -102,6 +109,46 @@ chmod 600 ~/.opencode-py/config.json  # auto-done on save where supported
 
 Corrupt `config.json` never crashes startup: it is moved aside to
 `config.json.corrupt.<timestamp>` with a stderr note, and defaults load.
+
+## Providers (80+, incl. opencode.ai)
+
+Ported from the [opencode provider directory](https://opencode.ai/docs/providers/)
+(AI SDK + Models.dev catalog). Three protocols are spoken over stdlib `urllib`:
+
+* `openai` — `POST {base}/chat/completions`, Bearer auth (the default; ~65 providers).
+* `anthropic` — `POST {base}/messages`, `x-api-key` auth (Anthropic direct).
+  Tool-calling degrades to text + `<invoke>` fallback on this protocol.
+* `azure` — `{base}/openai/deployments/{model}/chat/completions`, `api-key` auth.
+* `custom` — listed with a setup hint but intentionally unsupported
+  (Bedrock SigV4, Vertex OAuth, Copilot device flow, GitLab Duo, SAP, Modal,
+  DigitalOcean routers, Cloudflare account APIs). `--validate` tells you why.
+
+```bash
+python -m opencode_py --list-providers            # all 80+ with protocol + endpoint
+python -m opencode_py --provider opencode --save-config   # OpenCode Zen
+python -m opencode_py --provider ollama --set model=qwen3-coder --save-config
+python -m opencode_py --provider azure --base-url https://<res>.openai.azure.com \
+  --model <deployment> --save-config
+```
+
+Highlights:
+
+* `opencode` — **OpenCode Zen**, `https://opencode.ai/zen/v1`, key `OPENCODE_API_KEY`
+  (or `--api-key`), models as `opencode/<id>` e.g. `opencode/gpt-5-nano`.
+  Full model list: `curl https://opencode.ai/zen/v1/models`.
+* `opencode-go` — OpenCode Go plan, `https://opencode.ai/zen/go/v1`, same key.
+* Cloud: `openai anthropic deepseek groq together fireworks openrouter xai mistral
+  moonshot minimax zai deepinfra cerebras nvidia nebius gemini huggingface
+  github-models cohere perplexity upstage writer ai21 ...` (see `--list-providers`).
+* Local, no key: `ollama lmstudio llamacpp atomic-chat`.
+* Endpoint varies per account: `databricks scaleway stackit ovhcloud poolside snowflake scx` —
+  pick the id, then set `--base-url` (validate tells you exactly this).
+
+Precedence stays: explicit `--base-url/--api-key` > env (`OPENCODE_API_KEY`,
+`<PROVIDER>_API_KEY`, `OPENAI_*`) > config file > provider catalog default.
+Switching `--provider` without `--base-url` follows the new endpoint.
+`--validate` fails non-zero with the reason (unknown id, custom protocol,
+empty base/model).
 
 ## Usage
 

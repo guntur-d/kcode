@@ -12,8 +12,9 @@ from typing import Any, Dict, List, Optional
 DEFAULT_BASE_URL = "https://api.openai.com/v1"
 DEFAULT_MODEL = "gpt-4o-mini"
 DEFAULT_AGENT = "build"
+DEFAULT_PROVIDER = "openai"
 
-KNOWN_KEYS = ("base_url", "api_key", "model", "agent")
+KNOWN_KEYS = ("provider", "base_url", "api_key", "model", "agent")
 AGENTS = ("build", "plan")
 
 
@@ -45,6 +46,7 @@ def session_path(session_id):
 def _defaults():
     # type: () -> Dict[str, Any]
     return {
+        "provider": DEFAULT_PROVIDER,
         "base_url": DEFAULT_BASE_URL,
         "api_key": "",
         "model": DEFAULT_MODEL,
@@ -82,8 +84,8 @@ def _backup_corrupt(path, err):
         sys.stderr.write("opencode-py: corrupt config %s (%s); ignoring\n" % (path, err))
 
 
-def _from_env():
-    # type: () -> Dict[str, Any]
+def _from_env(provider_id=""):
+    # type: (str) -> Dict[str, Any]
     found = {}  # type: Dict[str, Any]
     if os.environ.get("OPENAI_BASE_URL"):
         found["base_url"] = os.environ.get("OPENAI_BASE_URL", "")
@@ -91,6 +93,17 @@ def _from_env():
         found["api_key"] = os.environ.get("OPENAI_API_KEY", "")
     if os.environ.get("OPENAI_MODEL"):
         found["model"] = os.environ.get("OPENAI_MODEL", "")
+    if os.environ.get("OPENCODE_API_KEY") and not found.get("api_key"):
+        # OpenCode Zen / Go share one key variable.
+        found["api_key"] = os.environ.get("OPENCODE_API_KEY", "")
+    if provider_id:
+        from .providers import get_provider
+
+        p = get_provider(provider_id)
+        if p and p["key"] and not found.get("api_key"):
+            hit = os.environ.get(p["key"], "")
+            if hit:
+                found["api_key"] = hit
     return found
 
 
@@ -100,6 +113,10 @@ def normalize(cfg):
         cfg["base_url"] = cfg["base_url"].rstrip("/")
     if cfg.get("agent") not in AGENTS:
         cfg["agent"] = DEFAULT_AGENT
+    if not str(cfg.get("provider", "") or "").strip():
+        cfg["provider"] = DEFAULT_PROVIDER
+    else:
+        cfg["provider"] = str(cfg.get("provider")).strip().lower()
     for k in ("base_url", "api_key", "model"):
         if cfg.get(k) is None:
             cfg[k] = ""
@@ -110,10 +127,21 @@ def normalize(cfg):
 
 def validate(cfg):
     # type: (Dict[str, Any]) -> List[str]
+    from .providers import CUSTOM, get_provider
+
     errors = []  # type: List[str]
+    pid = str(cfg.get("provider", "") or "openai")
+    p = get_provider(pid)
+    if p is None:
+        errors.append("unknown provider %r (see --list-providers)" % pid)
+    elif p["proto"] == CUSTOM:
+        errors.append("provider %s needs manual setup: %s" % (pid, p["note"]))
     base = str(cfg.get("base_url", "") or "")
     if not base:
-        errors.append("base_url is empty")
+        hint = ""
+        if p is not None and p["note"]:
+            hint = " (%s: %s)" % (pid, p["note"])
+        errors.append("base_url is empty%s" % hint)
     elif not (base.startswith("http://") or base.startswith("https://")):
         errors.append("base_url must start with http:// or https://")
     if not str(cfg.get("model", "") or "").strip():
@@ -125,13 +153,24 @@ def validate(cfg):
 
 def load_config(overrides=None):
     # type: (Optional[Dict[str, Any]]) -> Dict[str, Any]
+    # Precedence: defaults < config file < provider fill < env < CLI.
+    # Switching --provider without --base-url follows the new endpoint.
+    from .providers import resolve
+
     cfg = _defaults()
     cfg.update(_from_file(config_path()))
-    cfg.update(_from_env())
-    if overrides:
-        for k, v in overrides.items():
-            if k in KNOWN_KEYS and v is not None:
-                cfg[k] = v
+    cli = overrides or {}
+    new_pid = str(cli.get("provider") or "").strip().lower()
+    if new_pid and new_pid != str(cfg.get("provider", "")):
+        cfg["provider"] = new_pid
+        if not cli.get("base_url"):
+            cfg["base_url"] = ""
+    resolve(cfg, DEFAULT_BASE_URL)
+    cfg.update(_from_env(str(cfg.get("provider", "") or "")))
+    for k, v in cli.items():
+        if k in KNOWN_KEYS and v is not None:
+            cfg[k] = v
+    resolve(cfg, DEFAULT_BASE_URL)
     return normalize(cfg)
 
 

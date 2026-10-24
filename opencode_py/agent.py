@@ -91,12 +91,15 @@ class Agent(object):
         self._save(umsg)
         final = ""
         for _i in range(max_rounds):
+            protocol = str(self.cfg.get("protocol", "") or "openai")
+            use_tools = tools.tool_schemas() if protocol in ("openai", "azure") else None
             resp = llm.chat_completion(
                 self.cfg.get("base_url", ""),
                 self.cfg.get("api_key", ""),
                 self.model,
                 self.messages,
-                tools=tools.tool_schemas(),
+                tools=use_tools,
+                protocol=protocol,
             )
             msg = llm.extract_assistant(resp)
             self.messages.append(msg)

@@ -177,5 +177,99 @@ class TestCommands(unittest.TestCase):
         self.assertIsNone(handle_command(a, "hello world"))
 
 
+class TestProviders(unittest.TestCase):
+    def _iso(self):
+        import tempfile
+        os.environ["OPENCODE_PY_HOME"] = tempfile.mkdtemp()
+        for k in ("OPENAI_API_KEY", "OPENAI_BASE_URL", "OPENAI_MODEL", "OPENCODE_API_KEY"):
+            os.environ.pop(k, None)
+
+    def _restore(self):
+        for k in ("OPENCODE_PY_HOME", "OPENAI_API_KEY", "OPENAI_BASE_URL",
+                  "OPENAI_MODEL", "OPENCODE_API_KEY"):
+            os.environ.pop(k, None)
+
+    def test_catalog_has_75_plus(self):
+        sys.path.insert(0, ROOT)
+        from opencode_py import providers
+        self.assertGreaterEqual(providers.count(), 75)
+        self.assertIn("opencode", providers.provider_ids())
+        self.assertIn("ollama", providers.provider_ids())
+
+    def test_opencode_zen_base(self):
+        sys.path.insert(0, ROOT)
+        from opencode_py.providers import get_provider
+        zen = get_provider("opencode")
+        self.assertEqual(zen["base"], "https://opencode.ai/zen/v1")
+        self.assertEqual(zen["key"], "OPENCODE_API_KEY")
+        self.assertEqual(zen["proto"], "openai")
+
+    def test_resolve_fills_provider_base(self):
+        sys.path.insert(0, ROOT)
+        from opencode_py.providers import resolve
+        cfg = resolve({"provider": "ollama", "base_url": "", "api_key": ""}, "https://fallback")
+        self.assertEqual(cfg["base_url"], "http://localhost:11434/v1")
+        self.assertEqual(cfg["protocol"], "openai")
+        # explicit base always wins
+        cfg2 = resolve({"provider": "ollama", "base_url": "http://x:1/v1", "api_key": ""}, "https://fallback")
+        self.assertEqual(cfg2["base_url"], "http://x:1/v1")
+
+    def test_validate_unknown_and_custom(self):
+        sys.path.insert(0, ROOT)
+        self._iso()
+        try:
+            from opencode_py import config
+            errs = config.validate({"provider": "nope", "base_url": "https://x",
+                                    "model": "m", "agent": "build"})
+            self.assertTrue(any("unknown provider" in e for e in errs))
+            errs2 = config.validate({"provider": "bedrock", "base_url": "https://x",
+                                     "model": "m", "agent": "build"})
+            self.assertTrue(any("manual setup" in e for e in errs2))
+            errs3 = config.validate({"provider": "opencode", "base_url": "https://opencode.ai/zen/v1",
+                                     "model": "opencode/gpt-5-nano", "agent": "build"})
+            self.assertEqual(errs3, [])
+        finally:
+            self._restore()
+
+    def test_switching_provider_rebases(self):
+        sys.path.insert(0, ROOT)
+        self._iso()
+        try:
+            from opencode_py import config
+            cfg = config.load_config({"provider": "ollama"})
+            self.assertEqual(cfg["base_url"], "http://localhost:11434/v1")
+            cfg2 = config.load_config({"provider": "ollama", "base_url": "http://mine/v1"})
+            self.assertEqual(cfg2["base_url"], "http://mine/v1")
+        finally:
+            self._restore()
+
+    def test_anthropic_and_azure_shapes(self):
+        sys.path.insert(0, ROOT)
+        from unittest import mock
+        from opencode_py import llm
+        with mock.patch("opencode_py.llm._post",
+                        return_value={"content": [{"type": "text", "text": "hi"}]}) as m:
+            r = llm.chat_completion("https://api.anthropic.com/v1", "k", "claude-x",
+                                    [{"role": "system", "content": "s"},
+                                     {"role": "user", "content": "q"}],
+                                    protocol="anthropic")
+            self.assertTrue(m.call_args[0][0].endswith("/messages"))
+            self.assertEqual(m.call_args[0][1]["x-api-key"], "k")
+            self.assertEqual(llm.extract_assistant(r)["content"], "hi")
+        with mock.patch("opencode_py.llm._post",
+                        return_value={"choices": [{"message": {"content": "ok"}}]}) as m2:
+            llm.chat_completion("https://res.openai.azure.com", "k", "dep1",
+                                [{"role": "user", "content": "q"}], protocol="azure")
+            url = m2.call_args[0][0]
+            self.assertIn("/openai/deployments/dep1/chat/completions", url)
+            self.assertEqual(m2.call_args[0][1].get("api-key"), "k")
+
+    def test_list_providers_command(self):
+        sys.path.insert(0, ROOT)
+        from opencode_py.cli import build_parser, handle_config_commands
+        args = build_parser().parse_args(["--list-providers"])
+        self.assertEqual(handle_config_commands(args, {}), 0)
+
+
 if __name__ == "__main__":
     unittest.main()
