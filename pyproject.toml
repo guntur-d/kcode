@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "opencode-py"
+version = "0.1.0"
+description = "Minimal Python 3.8 port of opencode (AI coding agent) using PyTermGUI"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+dependencies = ["wcwidth>=0.5", "typing_extensions"]
+optional-dependencies = { tui = ["PyTermGUI>=7.0,<8"] }
+
+[project.scripts]
+opencode-py = "opencode_py.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["opencode_py*"]
