@@ -1,20 +1,37 @@
-# opencode-py — Python 3.8 port of opencode
+# kcode — an effort to make a Python-based TUI work on old machines
 
-Minimal, dependency-free (stdlib-only) AI coding agent inspired by
-https://github.com/anomalyco/opencode , with optional
-[PyTermGUI](https://github.com/bczsalba/pytermgui) TUI.
+> **Disclaimer: this is just an effort — a small experiment to get a
+> Python-based TUI coding agent running on old machines** (think Windows
+> Server 2016 with Python 3.8, legacy `conhost.exe`, no admin rights, sometimes
+> no internet). It is **not** a full rewrite of
+> [opencode](https://github.com/anomalyco/opencode) and not affiliated with it.
+> Expect rough edges; the goal is "it runs at all", not "it does everything".
 
-> PyTermGUI `requires-python >=3.8`, deps only `wcwidth + typing_extensions` —
-> while modern Textual needs `>=3.9` (+ rich, pygments, markdown-it, platformdirs,
-> optional tree-sitter on 3.10+). So **PyTermGUI is the easier choice for
-> Python 3.8 / Windows Server 2016**.
+Why this exists: modern TUI frameworks moved on — e.g.
+[Textual](https://github.com/Textualize/textual) now needs Python ≥ 3.9 plus
+`rich`, `pygments`, `markdown-it`, `platformdirs` (and tree-sitter extras on
+3.10+). [PyTermGUI](https://github.com/bczsalba/pytermgui), though archived,
+still declares `requires-python >= 3.8` with only `wcwidth +
+typing_extensions` as dependencies. So this experiment builds a minimal
+opencode-style agent loop on **stdlib-only core + optional PyTermGUI**,
+falling back to a plain `input()/print()` console when the terminal can't cope.
 
-## Install on real Win2016 server (Python 3.8)
+## What it is (and isn't)
 
-1. On the server, install **Python 3.8 64-bit** from python.org
+- **Is:** a minimal AI coding agent you can run with `py -3.8` on a 2016 box:
+  agent loop (`build` full-access / `plan` read-only), 7 local tools
+  (`read/write/edit/bash/glob/grep/list_dir`), any OpenAI-compatible
+  `/chat/completions` endpoint via stdlib `urllib`, JSON config file, session
+  logs, `--print` mode for scripts.
+- **Isn't:** the real opencode. Not ported: 75+ providers, LSP, MCP,
+  multi-session server, permission daemon, desktop app, rich TUI widgets.
+
+## Install on a real Win2016 server (Python 3.8)
+
+1. Install **Python 3.8 64-bit** from python.org
    (check `Add python.exe to PATH`, `pip`, `py launcher`).
    Verify: `py -3.8 --version` + `py -3.8 -m pip --version`.
-   Win2016 needs TLS 1.2 enabled for PyPI / OpenAI HTTPS — stock 2016 is fine
+   Win2016 needs TLS 1.2 for PyPI / OpenAI HTTPS — stock 2016 is fine
    once Windows Update is current; otherwise use the offline `vendor\` path below.
 2. Copy this folder to the server (or `dist\opencode_py-0.1.0-py3-none-any.whl`
    + `vendor\` + `requirements-py38.txt` + `install.bat` + `config.example.json`).
@@ -39,7 +56,7 @@ Build artifacts (already in repo): `dist\*.whl + *.tar.gz` via `python -m build`
 offline wheels in `vendor\` (`PyTermGUI 7.8.1 + wcwidth 0.5.0 + typing_extensions 4.12.2`,
 all `py3-none-any`, Python 3.8 compatible).
 
-## Install (Win2016 + Python 3.8) — quick
+Quick (machine with internet + Python 3.8):
 
 ```bat
 py -3.8 -m pip install -r requirements.txt
@@ -98,26 +115,15 @@ python -m opencode_py --agent plan
 python -m opencode_py --print "list files and explain this repo"
 echo "fix typo" | python -m opencode_py --print
 
-# overrides
+# overrides (any OpenAI-compatible base_url: Ollama, LM Studio, vLLM, OpenRouter, Azure)
 python -m opencode_py --model gpt-4o-mini --base-url http://localhost:11434/v1 --print "hi"
 ```
 
 TUI keys/commands: type text + `Enter`, `/agent build|plan`, `/model <name>`, `/quit`.
 
-## Scope vs original opencode
+## Old-machine notes (Windows Server 2016)
 
-Ported (MVP): agent loop (build/plan), 7 tools (read/write/edit/bash/glob/grep/list_dir),
-OpenAI-compatible `/chat/completions` via `urllib`, sessions (`~/.opencode-py/sessions/*.jsonl`),
-PyTermGUI TUI + plain-console fallback, `--print` mode.
-
-Not ported: 75+ providers, LSP, MCP, multi-session server, permission daemon,
-desktop app, full TUI widgets. Add as needed — `opencode_py/llm.py` accepts any
-OpenAI-compatible `base_url` (Ollama, LM Studio, vLLM, OpenRouter, Azure).
-
-## Windows Server 2016 notes
-
-- Prefer `Windows Terminal` or `conhost` with `chcp 65001`; legacy conhost has
-  reduced ANSI/mouse — the app auto-falls back to plain console (`--no-tui`,
-  `NO_COLOR=1`, `TERM=dumb`).
+- Legacy `conhost.exe` has reduced ANSI/mouse — the app auto-falls back to
+  plain console (`--no-tui`, `NO_COLOR=1`, `TERM=dumb`).
 - No `pty`/`fcntl` used; `bash` tool uses `shell=True` + captured pipes.
 - Python 3.8 syntax only: no `X|Y`, no `match`, no `tomllib`, `typing.List/Dict/Optional`.
