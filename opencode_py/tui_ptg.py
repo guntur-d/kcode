@@ -80,7 +80,7 @@ def run_ptg(agent):
         width=100,
         box="SINGLE",
     )
-    win.title = "opencode-py (pytermgui)"
+    win.title = "kcode @ %s" % getattr(agent, "cwd", "?")
     manager.add(win)
     try:
         manager.run()

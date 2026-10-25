@@ -66,7 +66,7 @@ py -3.8 -m pip install .
 **4. Add your API key** (pick one):
 
 ```bat
-opencode-py --init
+kcode --init
 rem prompts for provider/base_url/model, key is hidden; saves to
 rem %USERPROFILE%\.opencode-py\config.json
 ```
@@ -74,35 +74,43 @@ rem %USERPROFILE%\.opencode-py\config.json
 No TUI / scripting it instead:
 
 ```bat
-opencode-py --provider opencode --api-key sk-... --model opencode/gpt-5-nano --save-config
-rem local model instead: opencode-py --provider ollama --model qwen3-coder --save-config
+kcode --provider opencode --api-key sk-... --model opencode/gpt-5-nano --save-config
+rem local model instead: kcode --provider ollama --model qwen3-coder --save-config
 ```
+
+(`opencode-py` works everywhere `kcode` does — same tool, two names.)
 
 **5. Verify setup** — you should see your provider with the key masked:
 
 ```bat
-opencode-py --show-config
+kcode --show-config
 rem expect: provider: opencode / base_url: https://opencode.ai/zen/v1 / api_key: sk-...XXXX
-opencode-py --validate
+kcode --validate
 rem expect: config OK: C:\Users\YOU\.opencode-py\config.json
 ```
 
 If `--validate` complains, it tells you exactly what to fix
 (unknown provider id, missing base_url, empty model).
 
-**6. Run it:**
+**6. Run it — from any folder, it works on that folder:**
 
 ```bat
-opencode-py --print "say hi in one line"
+cd C:\path\to\your\project
+kcode --print "say hi in one line"
 rem expect: one line of model output, e.g. hi!
 
-opencode-py --no-tui
-rem interactive plain console; type a question, /quit to exit
+kcode --no-tui
+rem interactive plain console on the current folder; type a question, /quit to exit
 
-opencode-py
+kcode
 rem full TUI if your terminal supports ANSI; garbled output?
 rem run chcp 65001 first, or stick with --no-tui
 ```
+
+> After `install.bat`, open a **new** `cmd` window before running `kcode`
+> (Windows only picks up the new `Scripts\` PATH entry in new shells).
+> The banner/title always shows `@ <folder>` so you can confirm which
+> folder is loaded. Override with `kcode --cwd C:\other\place` if needed.
 
 Done — you're running. Details for each step live in the sections below
 (install options, config file reference, all 80+ providers).

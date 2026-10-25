@@ -8,8 +8,9 @@ def run_console(agent, stdin=None, stdout=None):
     # type: (object, object, object) -> int
     inp = stdin or sys.stdin
     out = stdout or sys.stdout
-    out.write("opencode-py [%s/%s] (type /help, /quit)\n" % (
-        getattr(agent, "model", "?"), getattr(agent, "agent", "build")))
+    out.write("kcode [%s/%s] @ %s (type /help, /quit)\n" % (
+        getattr(agent, "model", "?"), getattr(agent, "agent", "build"),
+        getattr(agent, "cwd", "?")))
     out.flush()
     while True:
         try:

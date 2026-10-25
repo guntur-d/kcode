@@ -31,6 +31,11 @@ if exist dist\opencode_py-*.whl (
 
 %PY% -m opencode_py --show-config
 echo.
-echo Next: opencode-py --init
-echo   (writes %%USERPROFILE%%\.opencode-py\config.json with base_url + api_key + model)
+echo Installed commands: kcode  +  opencode-py  (same tool, two names)
+echo.
+echo Next (open a NEW cmd window first so PATH picks up Scripts\):
+echo   cd C:\path\to\your\project
+echo   kcode --init    (one-time key setup)
+echo   kcode           (work on the current folder)
+echo   kcode --no-tui  (if the TUI looks garbled on conhost)
 endlocal
