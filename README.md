@@ -24,7 +24,11 @@ falling back to a plain `input()/print()` console when the terminal can't cope.
 
 Copy-paste in order. Expected output is shown under each command.
 
-**1. Install Python 3.8 64-bit** from https://www.python.org/downloads/
+**1. Install Python 3.8 64-bit.** Do **not** use the 3.8.20 page —
+python.org ships 3.8.20 as source-only tarballs (no Windows installer;
+3.8.10 was the last 3.8 with binary installers). Get
+**`python-3.8.10-amd64.exe`** ("Windows installer (64-bit)") from
+https://www.python.org/downloads/release/python-3810/
 (tick `Add python.exe to PATH`, `pip`, `py launcher`). Then:
 
 ```bat
@@ -119,7 +123,10 @@ Done — you're running. Details for each step live in the sections below
 All of this is automated by `install.bat` (step 3 above); read on only if
 something deviates.
 
-- **Python:** 3.8 64-bit from python.org. Verify with `py -3.8 --version`.
+- **Python:** 3.8 64-bit — specifically **3.8.10** (`python-3.8.10-amd64.exe`
+  from https://www.python.org/downloads/release/python-3810/).
+  Later 3.8.x pages (3.8.11–3.8.20) are source-only, no Windows installer.
+  Verify with `py -3.8 --version`.
   Win2016 needs TLS 1.2 for PyPI / OpenAI HTTPS — stock 2016 is fine
   once Windows Update is current; otherwise use the offline `vendor\` path.
 - **What `install.bat` does:** upgrades `pip` → installs `requirements-py38.txt`
