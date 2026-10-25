@@ -5,3 +5,4 @@ build/
 .pytest_cache/
 tmp/
 OPENCODE_PY_HOME/
+rules.md
