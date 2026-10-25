@@ -20,6 +20,89 @@ typing_extensions` as dependencies. So this experiment builds a minimal
 opencode-style agent loop on **stdlib-only core + optional PyTermGUI**,
 falling back to a plain `input()/print()` console when the terminal can't cope.
 
+## Get running in 6 steps (Windows Server 2016)
+
+Copy-paste in order. Expected output is shown under each command.
+
+**1. Install Python 3.8 64-bit** from https://www.python.org/downloads/
+(tick `Add python.exe to PATH`, `pip`, `py launcher`). Then:
+
+```bat
+py -3.8 --version
+rem expect: Python 3.8.x
+py -3.8 -m pip --version
+rem expect: pip 2x.x ...
+```
+
+Need a newer box just to try it? Any Python 3.8+ works — the steps are identical.
+
+**2. Get the code onto the machine** — clone, or copy this folder
+(or at minimum `dist\opencode_py-0.1.0-py3-none-any.whl` + `vendor\` +
+`requirements-py38.txt` + `install.bat` + `config.example.json`):
+
+```bat
+git clone https://github.com/guntur-d/kcode.git
+cd kcode
+```
+
+**3. Install** (no admin needed; works offline via `vendor\` if present):
+
+```bat
+install.bat
+rem expect: ... Successfully installed opencode-py ...
+rem         config: C:\Users\YOU\.opencode-py\config.json
+```
+
+No internet and no `vendor\`? Skip the TUI deps — the core is stdlib-only:
+
+```bat
+py -3.8 -m pip install .
+```
+
+**4. Add your API key** (pick one):
+
+```bat
+opencode-py --init
+rem prompts for provider/base_url/model, key is hidden; saves to
+rem %USERPROFILE%\.opencode-py\config.json
+```
+
+No TUI / scripting it instead:
+
+```bat
+opencode-py --provider opencode --api-key sk-... --model opencode/gpt-5-nano --save-config
+rem local model instead: opencode-py --provider ollama --model qwen3-coder --save-config
+```
+
+**5. Verify setup** — you should see your provider with the key masked:
+
+```bat
+opencode-py --show-config
+rem expect: provider: opencode / base_url: https://opencode.ai/zen/v1 / api_key: sk-...XXXX
+opencode-py --validate
+rem expect: config OK: C:\Users\YOU\.opencode-py\config.json
+```
+
+If `--validate` complains, it tells you exactly what to fix
+(unknown provider id, missing base_url, empty model).
+
+**6. Run it:**
+
+```bat
+opencode-py --print "say hi in one line"
+rem expect: one line of model output, e.g. hi!
+
+opencode-py --no-tui
+rem interactive plain console; type a question, /quit to exit
+
+opencode-py
+rem full TUI if your terminal supports ANSI; garbled output?
+rem run chcp 65001 first, or stick with --no-tui
+```
+
+Done — you're running. Details for each step live in the sections below
+(install options, config file reference, all 80+ providers).
+
 ## What it is (and isn't)
 
 - **Is:** a minimal AI coding agent you can run with `py -3.8` on a 2016 box:
@@ -31,44 +114,32 @@ falling back to a plain `input()/print()` console when the terminal can't cope.
 - **Isn't:** the real opencode. Not ported: LSP, MCP,
   multi-session server, permission daemon, desktop app, rich TUI widgets.
 
-## Install on a real Win2016 server (Python 3.8)
+## Install details (reference)
 
-1. Install **Python 3.8 64-bit** from python.org
-   (check `Add python.exe to PATH`, `pip`, `py launcher`).
-   Verify: `py -3.8 --version` + `py -3.8 -m pip --version`.
-   Win2016 needs TLS 1.2 for PyPI / OpenAI HTTPS — stock 2016 is fine
-   once Windows Update is current; otherwise use the offline `vendor\` path below.
-2. Copy this folder to the server (or `dist\opencode_py-0.1.0-py3-none-any.whl`
-   + `vendor\` + `requirements-py38.txt` + `install.bat` + `config.example.json`).
-3. Run `install.bat` (double-click or `install.bat` in `cmd`). It:
-   - upgrades `pip`, installs `requirements-py38.txt`
-     (from `vendor\` offline if present, else PyPI),
-   - `pip install .` (registers the `opencode-py` command from `dist\` if present),
-   - prints `--show-config`.
-   Pure-stdlib fallback (no TUI): skip requirements, just `py -3.8 -m pip install .`
-   or even run uninstalled via `py -3.8 -m opencode_py --no-tui` from this folder.
-4. Configure (pick one):
-   - `opencode-py --init` (prompts, key hidden) — recommended,
-   - `copy config.example.json %USERPROFILE%\.opencode-py\config.json` then edit,
-   - or one-shot: `opencode-py --api-key sk-... --base-url https://api.openai.com/v1 --model gpt-4o-mini --save-config`.
-   Verify: `opencode-py --show-config` (key is masked).
-5. Run: `opencode-py` (TUI if ANSI works) or `opencode-py --no-tui` (safe on
-   legacy `conhost.exe`). Non-interactive: `opencode-py --print "do X"`.
-   If the TUI is garbled on 2016 `conhost`, run `chcp 65001` first or stick to
-   `--no-tui` / `set NO_COLOR=1`. Behind a proxy: `set HTTPS_PROXY=http://...`.
+All of this is automated by `install.bat` (step 3 above); read on only if
+something deviates.
+
+- **Python:** 3.8 64-bit from python.org. Verify with `py -3.8 --version`.
+  Win2016 needs TLS 1.2 for PyPI / OpenAI HTTPS — stock 2016 is fine
+  once Windows Update is current; otherwise use the offline `vendor\` path.
+- **What `install.bat` does:** upgrades `pip` → installs `requirements-py38.txt`
+  (from `vendor\` offline if present, else PyPI) → `pip install .` (registers the
+  `opencode-py` command from `dist\` if present) → prints `--show-config`.
+- **Pure-stdlib fallback (no TUI):** skip requirements, just `py -3.8 -m pip install .`
+  or run uninstalled via `py -3.8 -m opencode_py --no-tui` from this folder.
+- **Proxy:** `set HTTPS_PROXY=http://...` before running.
+- **Linux:** same steps with `python3.8`:
+
+```bash
+python3.8 -m pip install -r requirements-py38.txt
+python3.8 -m pip install .
+python3.8 -m opencode_py --init
+python3.8 -m opencode_py --no-tui
+```
 
 Build artifacts (already in repo): `dist\*.whl + *.tar.gz` via `python -m build`,
 offline wheels in `vendor\` (`PyTermGUI 7.8.1 + wcwidth 0.5.0 + typing_extensions 4.12.2`,
 all `py3-none-any`, Python 3.8 compatible).
-
-Quick (machine with internet + Python 3.8):
-
-```bat
-py -3.8 -m pip install -r requirements.txt
-rem interactive setup -> writes %USERPROFILE%\.opencode-py\config.json
-py -3.8 -m opencode_py --init
-py -3.8 -m opencode_py --no-tui
-```
 
 Linux:
 
